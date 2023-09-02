@@ -1,6 +1,6 @@
 {{block "layout" .}}
 <!DOCTYPE html>
-<html lang="en" class="bg-slate-400 font-sans">
+<html lang="en" class="font-sans">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -22,15 +22,17 @@
     {{end}}
 
   </head>
-    <header>
-      <h1>jst.dev</h1>
-      <nav>
-        <ul>
+    <header class="bg-slate-300">
+      <h1 class="text-5xl text-center pb-5"><a href="/"> jst.dev</a></h1>
+      <nav class="flex flex-row justify-around bg-current">
           {{range $url, $name := .Nav}}
-            <li><a class="hx-turbo" href="{{$url}}">{{$name}}</a></li>
+            <a class="bg-slate-300 border-slate-500
+            w-full h-min text-center border-4 py-4  
+            hover:shadow-lg hover:bg-slate-500 hover:text-slate-300
+            transition-all" href="{{$url}}">{{$name}}</a>
           {{end}}
-        </ul>
       </nav>
+    </header>
       <article class="md-container w-11/12 mx-auto my-10 ">
             {{.Page.Html}}
       </article>
