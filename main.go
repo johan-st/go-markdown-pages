@@ -13,8 +13,12 @@ func main() {
 	// flag.Parse()
 
 	logger := log.New(os.Stderr)
-	logger.SetLevel(log.DebugLevel) //TODO: remove
-	handler := newHandler(logger.WithPrefix("handler"))
+	logger.SetPrefix("go-md-server")
+	logger.SetReportTimestamp(true)
+	logger.SetLevel(log.DebugLevel)
+	logger.SetReportCaller(true)
+
+	handler := newHandler(logger)
 	handler.prepareRoutes()
 
 	log.Fatal(runServer(handler))

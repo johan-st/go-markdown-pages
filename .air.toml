@@ -21,12 +21,12 @@ tmp_dir = "tmp"
   poll = false
   poll_interval = 0
   rerun = false
-  rerun_delay = "1s"
+  rerun_delay = 100
   send_interrupt = true
-  stop_on_error = true
+  stop_on_error = false
 
 [color]
-  app = ""
+  app = "red"
   build = "yellow"
   main = "magenta"
   runner = "green"
@@ -37,8 +37,8 @@ tmp_dir = "tmp"
   time = false
 
 [misc]
-  clean_on_exit = false
+  clean_on_exit = true
 
 [screen]
-  clear_on_rebuild = false
+  clear_on_rebuild = true
   keep_scroll = true

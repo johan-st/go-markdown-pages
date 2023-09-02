@@ -1,6 +1,6 @@
 ---
-title: Home
-path: /
+title: Test Data Basic
+path: /basic
 draft: false
 ---
 

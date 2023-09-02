@@ -1,0 +1,39 @@
+{{block "layout" .}}
+<!DOCTYPE html>
+<html lang="en" class="bg-slate-400 font-sans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    {{if .Page.Meta.title }}
+    <title>{{.BaseTitle}} | {{ .Page.Meta.title }}</title>
+    {{else}}
+    <title>{{.BaseTitle}} </title>
+    {{end}}
+
+  <link rel="icon" type="image/x-icon" href="/public/favicon.ico">
+
+    {{range .CSS }}
+    <link rel="stylesheet" href="{{.}}">
+    {{end}}
+
+    {{range .JS }}
+    <script src="{{.}}"></script>
+    {{end}}
+
+  </head>
+    <header>
+      <h1>jst.dev</h1>
+      <nav>
+        <ul>
+          {{range $url, $name := .Nav}}
+            <li><a class="hx-turbo" href="{{$url}}">{{$name}}</a></li>
+          {{end}}
+        </ul>
+      </nav>
+      <article class="md-container w-11/12 mx-auto my-10 ">
+            {{.Page.Html}}
+      </article>
+  </body>
+</html>
+{{end}}
