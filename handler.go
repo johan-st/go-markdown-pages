@@ -32,19 +32,20 @@ type page struct {
 	filename string
 }
 
-type templateData struct {
-	BaseTitle string
-	Nav       map[string]string
-	Meta      map[string]string
+var (
+	// required metadata keys for pages. These are validated in parseMetadata
+	requiredMeta = []string{"title", "path", "draft"}
 
-	CSS []string
-	JS  []string
+	// folder containing templates
+	tmplFolder = "templates"
 
-	Page page
-}
-
-// list of required metadata keys. These are validated in parseMetadata
-var requiredMeta = []string{"title", "path", "draft"}
+	// mdGlobs for markdown files
+	mdGlobs = []string{
+		"pages/*.md",
+		"pages/**/*.md",
+		"pages/**/**/*.md",
+	}
+)
 
 func newHandler(l *log.Logger) *handler {
 	h := &handler{
@@ -57,6 +58,7 @@ func newHandler(l *log.Logger) *handler {
 
 func (h *handler) prepareRoutes() {
 
+	h.router.HandleFunc("GET", "/partials/:template", h.handlePartialsDev())
 	h.router.HandleFunc("GET", "/public/", h.handlePublic())
 	h.router.HandleFunc("GET", "...", h.handleDevMode())
 
@@ -64,6 +66,58 @@ func (h *handler) prepareRoutes() {
 
 // HANDLERS
 
+func (h *handler) handlePartialsDev() http.HandlerFunc {
+	type colorsData string
+	var (
+		tmplData any
+
+		// "colors"
+		colors    = []string{"#EE6055", "#60D394", "#AAF683", "#FFD97D", "#FF9B85"}
+		nextColor = 0
+	)
+
+	// setup
+	l := h.errorLogger.With("handler", "handlePartials")
+	defer func(t time.Time) {
+		l.Debug("handler ready", "time", time.Since(t))
+	}(time.Now())
+
+	// handler
+	return func(w http.ResponseWriter, r *http.Request) {
+		// timer
+		defer func(t time.Time) {
+			l.Debug("responding",
+				"time", time.Since(t),
+				"request_path", r.URL.Path,
+				"template_requested", way.Param(r.Context(), "template"),
+			)
+		}(time.Now())
+
+		tmpl, err := template.ParseGlob(tmplFolder + "/*.html")
+		if err != nil {
+			l.Error("parse template", "error", err)
+			respondStatus(w, r, http.StatusInternalServerError)
+			return
+		}
+
+		requestedTemplate := way.Param(r.Context(), "template")
+
+		switch requestedTemplate {
+		case "Color-Swap-Demo":
+			color := colors[nextColor]
+			nextColor = (nextColor + 1) % len(colors)
+			tmplData = colorsData(color)
+		default:
+			tmplData = nil
+		}
+
+		err = tmpl.ExecuteTemplate(w, requestedTemplate, tmplData)
+		if err != nil {
+			l.Error("execute template", "template", requestedTemplate, "error", err)
+			respondStatus(w, r, http.StatusInternalServerError)
+		}
+	}
+}
 func (h *handler) handlePublic() http.HandlerFunc {
 	var (
 		publicFolder = "public"
@@ -78,14 +132,14 @@ func (h *handler) handlePublic() http.HandlerFunc {
 	// handler
 	return func(w http.ResponseWriter, r *http.Request) {
 		// timer
-		// defer func(t time.Time) {
-		// 	l.Debug("responding",
-		// 		"time", time.Since(t),
-		// 		"request_path", r.URL.Path,
-		// 		"status", w.Header().Get("status"),
-		// 		"content_length", w.Header().Get("content-length"),
-		// 	)
-		// }(time.Now())
+		defer func(t time.Time) {
+			l.Debug("responding",
+				"time", time.Since(t),
+				"request_path", r.URL.Path,
+				"status", w.Header().Get("status"),
+				"content_length", w.Header().Get("content-length"),
+			)
+		}(time.Now())
 
 		r.URL.Path = strings.TrimPrefix(r.URL.Path, pathPrefix)
 
@@ -97,22 +151,26 @@ func (h *handler) handlePublic() http.HandlerFunc {
 // TODO: prepare handlers on startup and not on every request
 // except for dev mode
 func (h *handler) handleDevMode() http.HandlerFunc {
+
+	type templateData struct {
+		BaseTitle string
+		Nav       map[string]string
+		Meta      map[string]string
+
+		CSS []string
+		JS  []string
+
+		Page page
+	}
+
 	var (
-		tmplFolder = "templates"
-
-		globs = []string{
-			"pages/*.md",
-			"pages/**/*.md",
-			"pages/**/**/*.md",
-		}
-
 		tmplData = templateData{
 			Meta:      map[string]string{"description": "TODO: add description", "keywords": "TODO: add keywords"},
 			BaseTitle: "go-md-server",
 
 			Nav: map[string]string{"NOT POPULATED": "NOT POPULATED"},
 
-			CSS: []string{"/public/tailwind.css"},
+			CSS: []string{"/public/tailwind.css", "/public/custom.css"},
 			JS: []string{"/public/main.js",
 				// "<script src="https://unpkg.com/htmx.org@1.9.5" integrity="sha384-xcuj3WpfgjlKF+FXhSQFQ0ZNr39ln+hwjN3npfM9VBnUskLolQAcN80McRIVOPuO" crossorigin="anonymous"></script>"},
 				"https://unpkg.com/htmx.org@1.9.5",
@@ -130,14 +188,23 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 
 	// handler
 	return func(w http.ResponseWriter, r *http.Request) {
+		// delay
+		// delayBase := 100
+		// delayRand := 1
+		// delay := time.Duration(delayBase+rand.Intn(delayRand)) * time.Millisecond
+
 		// timer
 		defer func(t time.Time) {
-			l.Info("response", "time", time.Since(t))
+			l.Info("response", "time", time.Since(t)) // "delay", delay,
+
 		}(time.Now())
+
+		// delay
+		// time.Sleep(delay)
 
 		// Find all markdown files
 		var mdPaths []string
-		for _, g := range globs {
+		for _, g := range mdGlobs {
 			paths, err := filepath.Glob(g)
 			if err != nil {
 				h.errorLogger.Fatal("glob markdown files", "error", err)
