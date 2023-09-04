@@ -13,12 +13,10 @@
   {{end}}
 
   <link rel="icon" type="image/x-icon" href="/public/favicon.ico" />
+  <link rel="stylesheet" href="/public/tailwind.css">
+  <script src="/public/htmx.min.js"></script>
 
-  {{range .CSS }}
-  <link rel="stylesheet" href="{{.}}" />
-  {{end}} {{range .JS }}
-  <script src="{{.}}"></script>
-  {{end}}
+
 </head>
 
 <body id="body" class="bg-gradient-to-br from-slate-100 to-slate-300 min-h-screen">
@@ -34,8 +32,7 @@
       {{end}} */}}
     </h1>
     <div class="bg-slate-500 w-screen py-2 shadow-inner">
-      <nav hx-boost="true delay:100ms" hx-indicator="#md-indicator"
-        class="flex flex-row justify-center max-w-screen-lg mx-auto">
+      <nav hx-boost="true" class="flex flex-row justify-center max-w-screen-lg mx-auto">
         {{range $url, $name := .Nav}}
         <a class="bg-slate-300 text-slate-500 mr-2 last:mr-0 w-max px-8 text-center py-4 hover:shadow-lg hover:-translate-y-1 hover:bg-slate-500 hover:text-slate-300 transition-all"
           href="{{$url}}">{{$name}}</a>
@@ -55,8 +52,6 @@
   <div id="test-form-response" hx-get="/partials/Test-Form-Response"></div>
   {{end}}
 
-  <img id="md-indicator" class="htmx-indicator fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-20 rounded transition-all duration-500 ease-in delay-500
-    bg-slate-500" style="color: #000000" src="/public/spinners/grid.svg" />
   <article id="md-container"
     class="w-11/12 mx-auto my-10 min-h-full max-w-screen-lg transition-all duration-500 ease-in">
     {{.Page.Html}}

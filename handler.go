@@ -168,13 +168,7 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 			Meta:      map[string]string{"description": "TODO: add description", "keywords": "TODO: add keywords"},
 			BaseTitle: "go-md-server",
 
-			Nav: map[string]string{"NOT POPULATED": "NOT POPULATED"},
-
-			CSS: []string{"/public/tailwind.css", "/public/custom.css"},
-			JS: []string{"/public/main.js",
-				// "<script src="https://unpkg.com/htmx.org@1.9.5" integrity="sha384-xcuj3WpfgjlKF+FXhSQFQ0ZNr39ln+hwjN3npfM9VBnUskLolQAcN80McRIVOPuO" crossorigin="anonymous"></script>"},
-				"https://unpkg.com/htmx.org@1.9.5",
-			},
+			Nav: map[string]string{},
 		}
 	)
 
