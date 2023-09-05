@@ -178,14 +178,11 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 		l.Debug("handler ready", "time", time.Since(t))
 	}(time.Now())
 
-	mdRenderer := markdown.New(markdown.XHTMLOutput(true))
+	mdRenderer := markdown.New(markdown.XHTMLOutput(true), markdown.HTML(true))
 
 	// handler
 	return func(w http.ResponseWriter, r *http.Request) {
-		// delay
-		// delayBase := 100
-		// delayRand := 1
-		// delay := time.Duration(delayBase+rand.Intn(delayRand)) * time.Millisecond
+		// delay := time.Duration(50 * time.Millisecond)
 
 		// timer
 		defer func(t time.Time) {
