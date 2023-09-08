@@ -52,6 +52,7 @@ func runServer(h *handler) error {
 	return fmt.Errorf("unexpected server shutdown")
 }
 
+// GIT HELPERS
 func gitRefresher(l *log.Logger, intervall time.Duration) {
 	l = l.WithPrefix("git-refresher")
 	l.Info("Starting git refresher", "intervall", intervall)
