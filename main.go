@@ -42,7 +42,7 @@ func runServer(h *handler) error {
 		Handler: h,
 	}
 
-	// gitRefresher
+	// gitRefresher will pull from git at a given intervall
 	go gitRefresher(l, gitRefreshIntervall)
 
 	l.Info("Starting server", "addr", srv.Addr)
