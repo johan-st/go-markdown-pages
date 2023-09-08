@@ -1,7 +1,7 @@
 ---
-title: My Grand Blog
-path: /blog
-draft: true
+title: markdown test-sheet
+path: /md-test
+draft: false
 ---
 
 # Welcome to my grand blog

@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -22,14 +21,17 @@ func main() {
 	// flagDev := flag.Bool("dev", false, "Run in development mode. Compiles templates on every request.")
 	// flag.Parse()
 
-	logger := log.New(os.Stderr)
-	logger.SetPrefix("go-md-server")
-	logger.SetReportTimestamp(true)
-	logger.SetLevel(log.DebugLevel)
-	logger.SetReportCaller(true)
+	l := log.New(os.Stderr)
+	l.SetPrefix("go-md-server")
+	l.SetReportTimestamp(true)
+	l.SetLevel(log.DebugLevel)
+	l.SetReportCaller(true)
 
-	handler := newHandler(logger)
+	handler := newHandler(l)
 	handler.prepareRoutes()
+
+	// gitRefresher will pull from git at a given intervall
+	go gitPoll(l, gitRefreshIntervall)
 
 	log.Fatal(runServer(handler))
 }
@@ -41,9 +43,6 @@ func runServer(h *handler) error {
 		Addr:    ":8080",
 		Handler: h,
 	}
-
-	// gitRefresher will pull from git at a given intervall
-	go gitPoll(l, gitRefreshIntervall)
 
 	l.Info("Starting server", "addr", srv.Addr)
 	if err := srv.ListenAndServe(); err != nil {
@@ -57,17 +56,11 @@ func gitPoll(l *log.Logger, intervall time.Duration) {
 	l = l.WithPrefix("git-refresher")
 	l.Info("Starting git refresher", "intervall", intervall)
 
-	absGitPath, err := filepath.Abs(gitPath)
-	if err != nil {
-		l.Error("filepath.Abs", "err", err)
-		return
-	}
-
 	for {
 		l.Debug("git pull",
 			"remote", gitRemote,
-			"path", absGitPath)
-		err := gitPull(absGitPath)
+			"path", gitPath)
+		err := gitPull(gitPath)
 		if err != nil {
 			l.Error("git pull", "err", err)
 		}
@@ -75,9 +68,9 @@ func gitPoll(l *log.Logger, intervall time.Duration) {
 	}
 }
 
-func gitPull(absGitPath string) error {
+func gitPull(gitPath string) error {
 	cmd := exec.Command("git", "pull")
-	cmd.Dir = absGitPath
+	cmd.Dir = gitPath
 	return cmd.Run()
 
 }

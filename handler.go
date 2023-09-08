@@ -17,6 +17,7 @@ import (
 	meta "github.com/yuin/goldmark-meta"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/renderer/html"
 )
 
 type handler struct {
@@ -217,6 +218,9 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 		goldmark.WithExtensions(
 			extension.GFM,
 			meta.Meta,
+		),
+		goldmark.WithRendererOptions(
+			html.WithUnsafe(),
 		),
 	)
 	// handler
