@@ -319,7 +319,7 @@ func splitMarkdown(src []byte) ([]byte, []byte, error) {
 
 	split := bytes.SplitN(src, sep, 3)
 	if len(split) != 3 {
-		return nil, nil, fmt.Errorf("invalid markdown file. Missing metadata")
+		return nil, nil, fmt.Errorf("invalid markdown file. no metadata found")
 	}
 	return split[1], split[2], nil
 }

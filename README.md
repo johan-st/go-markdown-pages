@@ -1,5 +1,5 @@
 ---
-title: Dev Stuff
+title: server docs
 path: /README
 draft: false
 ---
@@ -34,10 +34,11 @@ air -c .air.toml
 
 ## build
 ```bash
-# example build command
 # once per machine
 cd ..
 git clone https://github.com/johan-st/obsidian-vault
+
+# sparse checkout will only pull the go-md-articles folder (optional)
 cd obsidian-vault/
 git sparse-checkout set go-md-articles
 

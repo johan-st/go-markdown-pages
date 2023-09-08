@@ -58,7 +58,7 @@ func gitRefresher(l *log.Logger, intervall time.Duration) {
 
 	absGitPath, err := filepath.Abs(gitPath)
 	if err != nil {
-		l.Fatal("filepath.Abs failed", "err", err)
+		l.Error("filepath.Abs", "err", err)
 		return
 	}
 
@@ -68,7 +68,7 @@ func gitRefresher(l *log.Logger, intervall time.Duration) {
 			"path", absGitPath)
 		err := gitPull(absGitPath)
 		if err != nil {
-			l.Fatal("git pull failed", "err", err)
+			l.Error("git pull", "err", err)
 		}
 		time.Sleep(intervall)
 	}
