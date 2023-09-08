@@ -21,10 +21,15 @@ air -c .air.toml
 
 ## TODOs
 
+- [ ] have articles listed under /articles
 - [ ] integrate with [turso.tech](https://turso.tech) (for fun and profit)
 - [ ] animate page transitions
 - [ ] syntax highlighting w/ https://github.com/wooorm/starry-night
-- [ ] github flavored markdown and styling [css](https://github.com/sindresorhus/github-markdown-css)
+- [ ] add search
+- [ ] add tags
+- [ ] add date
+- [ ] add comments?
+- [x] github flavored markdown and styling [css](https://github.com/sindresorhus/github-markdown-css)
 - [x] enable html in markdown
 - [x] add tailwindcss
 - [x] add air
