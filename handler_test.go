@@ -3,21 +3,26 @@ package main
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
-func Test_parseMetadata(t *testing.T) {
+func Test_parseMetadata_old(t *testing.T) {
 	type args struct {
-		src []byte
+		src map[string]any
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    map[string]string
+		want    metadata
 		wantErr bool
 	}{
-		{"happy path",
-			args{[]byte("title: Test Data Basic\npath: /basic\ndraft: false")},
-			map[string]string{"title": "Test Data Basic", "draft": "false", "path": "/basic"},
+		{"required fields",
+			args{map[string]any{
+				"title": "Test Data Basic",
+				"path":  "/basic",
+				"draft": false,
+			}},
+			metadata{Title: "Test Data Basic", Path: "/basic", Draft: false, Tags: []string{}, Date: time.Time{}},
 			false},
 	}
 	for _, tt := range tests {
@@ -27,6 +32,7 @@ func Test_parseMetadata(t *testing.T) {
 				t.Errorf("parseMetadata() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			t.Logf("got: %+v", got)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("parseMetadata() = %v, want %v", got, tt.want)
 			}

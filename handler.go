@@ -13,7 +13,10 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/matryer/way"
-	"gitlab.com/golang-commonmark/markdown"
+	"github.com/yuin/goldmark"
+	meta "github.com/yuin/goldmark-meta"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
 )
 
 type handler struct {
@@ -23,19 +26,20 @@ type handler struct {
 }
 
 type page struct {
-	// metadata
-	Meta map[string]string
-	// content
+	Meta metadata
 	Html string
-
 	// Debug info
 	filename string
 }
+type metadata struct {
+	Title string
+	Path  string
+	Draft bool
+	Tags  []string
+	Date  time.Time
+}
 
 var (
-	// required metadata keys for pages. These are validated in parseMetadata
-	requiredMeta = []string{"title", "path", "draft"}
-
 	// folder containing templates
 	tmplFolder = "templates"
 
@@ -178,8 +182,13 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 		l.Debug("handler ready", "time", time.Since(t))
 	}(time.Now())
 
-	mdRenderer := markdown.New(markdown.XHTMLOutput(true), markdown.HTML(true))
-
+	// mdRenderer := markdown.New(markdown.XHTMLOutput(true), markdown.HTML(true))
+	mdRenderer := goldmark.New(
+		goldmark.WithExtensions(
+			extension.GFM,
+			meta.Meta,
+		),
+	)
 	// handler
 	return func(w http.ResponseWriter, r *http.Request) {
 		// delay := time.Duration(50 * time.Millisecond)
@@ -226,12 +235,12 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 				continue
 			}
 			pages = append(pages, p)
-			tmplData.Nav[p.Meta["path"]] = p.Meta["title"]
+			tmplData.Nav[p.Meta.Path] = p.Meta.Title
 
 		}
 
 		for _, p := range pages {
-			pagePath, err := url.Parse(p.Meta["path"])
+			pagePath, err := url.Parse(p.Meta.Path)
 			if err != nil {
 				l.Fatal("parse page path", "page", p, "error", err)
 				continue
@@ -245,8 +254,8 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 
 				// TODO: remove debug
 				l.Debug("serving page",
-					"path", p.Meta["path"],
-					"title", p.Meta["title"],
+					"path", p.Meta.Path,
+					"title", p.Meta.Title,
 					"filename", p.filename,
 					"html_length", len(p.Html))
 
@@ -265,7 +274,7 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 		}
 		pagePaths := make(map[string]string, len(pages))
 		for _, p := range pages {
-			pagePaths[p.Meta["path"]] = p.Meta["title"]
+			pagePaths[p.Meta.Path] = p.Meta.Title
 		}
 
 		l.Debug("request path does not match any page",
@@ -285,72 +294,58 @@ func respondStatus(w http.ResponseWriter, r *http.Request, status int) {
 
 // PAGE
 
-// TODO: implement and test
-func preparePage(md *markdown.Markdown, path string) (page, error) {
+func preparePage(md goldmark.Markdown, path string) (page, error) {
 	file, err := os.ReadFile(path)
 	if err != nil {
 		return page{}, fmt.Errorf("read file: %s", err)
 	}
 
-	mdMeta, mdBody, err := splitMarkdown(file)
+	var html bytes.Buffer
+	ctx := parser.NewContext()
+	err = md.Convert(file, &html, parser.WithContext(ctx))
 	if err != nil {
-		return page{}, fmt.Errorf("split markdown: %s", err)
+		return page{}, fmt.Errorf("convert markdown: %s", err)
 	}
 
-	pageMeta, err := parseMetadata(mdMeta)
+	pageMeta, err := parseMetadata(meta.Get(ctx))
 	if err != nil {
 		return page{}, fmt.Errorf("parse metadata: %s", err)
 	}
-
-	pageMeta["path"] = strings.ToLower(pageMeta["path"])
-
-	html := md.RenderToString(mdBody)
 	p := page{
 		Meta:     pageMeta,
-		Html:     html,
+		Html:     html.String(),
 		filename: path,
 	}
-
 	return p, nil
 }
 
-func splitMarkdown(src []byte) ([]byte, []byte, error) {
-	var sep = []byte("---")
+func parseMetadata(meta map[string]any) (metadata, error) {
+	m := metadata{}
 
-	split := bytes.SplitN(src, sep, 3)
-	if len(split) != 3 {
-		return nil, nil, fmt.Errorf("invalid markdown file. no metadata found")
-	}
-	return split[1], split[2], nil
-}
-
-func parseMetadata(src []byte) (map[string]string, error) {
-
-	meta := make(map[string]string)
-	src = bytes.ReplaceAll(src, []byte("\r"), []byte(""))
-
-	// TODO: Clean up
-	lines := bytes.Split(src, []byte("\n"))
-
-	for _, l := range lines {
-		keyVal := bytes.SplitN(l, []byte(":"), 2)
-		if len(keyVal) != 2 {
-			continue
-		}
-
-		meta[string(bytes.TrimSpace(keyVal[0]))] = string(bytes.TrimSpace(keyVal[1]))
+	// REQUIRED fields
+	if val, ok := meta["title"]; ok {
+		m.Title = val.(string)
+	} else {
+		return m, fmt.Errorf("no title found")
 	}
 
-	for _, k := range requiredMeta {
-		val, ok := meta[k]
-		if !ok {
-			return nil, fmt.Errorf("missing required metadata: %s", k)
-		}
-		if val == "" {
-			return nil, fmt.Errorf("missing required metadata: %s", k)
-		}
+	if val, ok := meta["path"]; ok {
+		m.Path = val.(string)
+	} else {
+		return m, fmt.Errorf("no path found")
 	}
-	return meta, nil
+
+	if val, ok := meta["draft"]; ok {
+		m.Draft = val.(bool)
+	} else {
+		return m, fmt.Errorf("no draft found")
+	}
+
+	// OPTIONAL fields
+	m.Tags = []string{}
+	m.Date = time.Time{}
+
+	return m, nil
 }
 
 // OTHER
