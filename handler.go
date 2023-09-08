@@ -61,7 +61,7 @@ func newHandler(l *log.Logger) *handler {
 }
 
 func (h *handler) prepareRoutes() {
-
+	h.router.HandleFunc("GET", "/git", h.handleGitWebhook())
 	h.router.HandleFunc("GET", "/partials/:template", h.handlePartialsDev())
 	h.router.HandleFunc("GET", "/public/", h.handlePublic())
 	h.router.HandleFunc("GET", "...", h.handleDevMode())
@@ -69,6 +69,36 @@ func (h *handler) prepareRoutes() {
 }
 
 // HANDLERS
+
+func (h *handler) handleGitWebhook() http.HandlerFunc {
+	// setup
+	l := h.errorLogger.With("handler", "handleGitPull")
+	defer func(t time.Time) {
+		l.Debug("handler ready", "time", time.Since(t))
+	}(time.Now())
+
+	// handler
+	return func(w http.ResponseWriter, r *http.Request) {
+		// timer
+		defer func(t time.Time) {
+			l.Debug("responding",
+				"time", time.Since(t),
+				"request_path", r.URL.Path,
+			)
+		}(time.Now())
+
+		l.Debug("git pull",
+			"remote", gitRemote,
+			"path", gitPath)
+
+		err := gitPull(gitPath)
+		if err != nil {
+			l.Error("git pull", "err", err)
+			respondStatus(w, r, http.StatusInternalServerError)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
 
 func (h *handler) handlePartialsDev() http.HandlerFunc {
 	type colorsData string
@@ -182,8 +212,8 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 		l.Debug("handler ready", "time", time.Since(t))
 	}(time.Now())
 
-	// mdRenderer := markdown.New(markdown.XHTMLOutput(true), markdown.HTML(true))
-	mdRenderer := goldmark.New(
+	// md := markdown.New(markdown.XHTMLOutput(true), markdown.HTML(true))
+	md := goldmark.New(
 		goldmark.WithExtensions(
 			extension.GFM,
 			meta.Meta,
@@ -191,16 +221,12 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 	)
 	// handler
 	return func(w http.ResponseWriter, r *http.Request) {
-		// delay := time.Duration(50 * time.Millisecond)
 
 		// timer
 		defer func(t time.Time) {
 			l.Info("response", "time", time.Since(t)) // "delay", delay,
 
 		}(time.Now())
-
-		// delay
-		// time.Sleep(delay)
 
 		// Find all markdown files
 		var mdPaths []string
@@ -213,7 +239,7 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 		}
 		h.errorLogger.Debug("found markdown files", "files", mdPaths)
 
-		// prepare template
+		// prepare templates
 		tmpl, err := template.ParseGlob(tmplFolder + "/*.html")
 		if err != nil {
 			l.Error("parse template", "error", err)
@@ -221,15 +247,11 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 			return
 		}
 
-		// find page correscponding to path
-		// path := r.URL.Path
-		// for
-
 		// prepare pages
 		var pages []page
 		tmplData.Nav = make(map[string]string, len(mdPaths))
 		for _, path := range mdPaths {
-			p, err := preparePage(mdRenderer, path)
+			p, err := preparePage(md, path)
 			if err != nil {
 				l.Error("prepare page. page ignored", "file", path, "error", err)
 				continue

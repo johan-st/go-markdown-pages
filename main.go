@@ -15,7 +15,7 @@ const (
 	gitRemote           = "https://github.com/johan-st/obsidian-vault"
 	gitPath             = "../obsidian-vault"
 	gitMdPath           = "../obsidian-vault/go-md-articles"
-	gitRefreshIntervall = 1 * time.Minute
+	gitRefreshIntervall = 1 * time.Hour
 )
 
 func main() {
@@ -43,7 +43,7 @@ func runServer(h *handler) error {
 	}
 
 	// gitRefresher will pull from git at a given intervall
-	go gitRefresher(l, gitRefreshIntervall)
+	go gitPoll(l, gitRefreshIntervall)
 
 	l.Info("Starting server", "addr", srv.Addr)
 	if err := srv.ListenAndServe(); err != nil {
@@ -53,7 +53,7 @@ func runServer(h *handler) error {
 }
 
 // GIT HELPERS
-func gitRefresher(l *log.Logger, intervall time.Duration) {
+func gitPoll(l *log.Logger, intervall time.Duration) {
 	l = l.WithPrefix("git-refresher")
 	l.Info("Starting git refresher", "intervall", intervall)
 

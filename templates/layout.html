@@ -12,6 +12,7 @@
     {{end}}
 
     <link rel="icon" type="image/x-icon" href="/public/favicon.ico" />
+    <link rel="stylesheet" href="/public/github-markdown.css" />
     <link rel="stylesheet" href="/public/tailwind.css" />
     <link rel="stylesheet" href="/public/custom.css" />
     <script src="/public/htmx.min.js"></script>
@@ -69,8 +70,7 @@
 
     <main>
       <article
-        id="md-container"
-        class="w-11/12 mx-auto my-10 min-h-screen max-w-screen-lg transition-all duration-500 ease-in"
+        class="markdown-body w-11/12 mx-auto my-10 p-8 min-h-screen max-w-screen-lg transition-all duration-500 ease-in"
       >
         {{.Page.Html}}
       </article>

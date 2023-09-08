@@ -25,7 +25,6 @@ air -c .air.toml
 - [ ] animate page transitions
 - [ ] syntax highlighting w/ https://github.com/wooorm/starry-night
 - [ ] github flavored markdown and styling [css](https://github.com/sindresorhus/github-markdown-css)
---- 
 - [x] enable html in markdown
 - [x] add tailwindcss
 - [x] add air
