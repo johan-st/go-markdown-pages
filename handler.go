@@ -43,7 +43,7 @@ var (
 	mdGlobs = []string{
 		"pages/*.md",
 		"pages/**/*.md",
-		"pages/**/**/*.md",
+		gitMdPath + "/*.md",
 	}
 )
 
@@ -222,7 +222,7 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 		for _, path := range mdPaths {
 			p, err := preparePage(mdRenderer, path)
 			if err != nil {
-				l.Error("prepare page. Page will be ignored", "file", path, "error", err)
+				l.Error("prepare page. page ignored", "file", path, "error", err)
 				continue
 			}
 			pages = append(pages, p)

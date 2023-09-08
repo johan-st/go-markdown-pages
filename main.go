@@ -4,8 +4,18 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"time"
 
 	"github.com/charmbracelet/log"
+)
+
+const (
+	gitRemote           = "https://github.com/johan-st/obsidian-vault"
+	gitPath             = "../obsidian-vault"
+	gitMdPath           = "../obsidian-vault/go-md-articles"
+	gitRefreshIntervall = 1 * time.Minute
 )
 
 func main() {
@@ -32,9 +42,41 @@ func runServer(h *handler) error {
 		Handler: h,
 	}
 
+	// gitRefresher
+	go gitRefresher(l, gitRefreshIntervall)
+
 	l.Info("Starting server", "addr", srv.Addr)
 	if err := srv.ListenAndServe(); err != nil {
 		return fmt.Errorf("ListenAndServe: %s", err)
 	}
 	return fmt.Errorf("unexpected server shutdown")
+}
+
+func gitRefresher(l *log.Logger, intervall time.Duration) {
+	l = l.WithPrefix("git-refresher")
+	l.Info("Starting git refresher", "intervall", intervall)
+
+	absGitPath, err := filepath.Abs(gitPath)
+	if err != nil {
+		l.Fatal("filepath.Abs failed", "err", err)
+		return
+	}
+
+	for {
+		l.Debug("git pull",
+			"remote", gitRemote,
+			"path", absGitPath)
+		err := gitPull(absGitPath)
+		if err != nil {
+			l.Fatal("git pull failed", "err", err)
+		}
+		time.Sleep(intervall)
+	}
+}
+
+func gitPull(absGitPath string) error {
+	cmd := exec.Command("git", "pull")
+	cmd.Dir = absGitPath
+	return cmd.Run()
+
 }
