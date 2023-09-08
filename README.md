@@ -30,3 +30,16 @@ air -c .air.toml
 - [x] add tailwindcss
 - [x] add air
 - [x] add markdown
+- [x] update from github repo (requires git on server and a instatiated repo)
+
+## build
+```bash
+# example build command
+# once per machine
+cd ..
+git clone https://github.com/johan-st/obsidian-vault
+cd obsidian-vault/
+git sparse-checkout set go-md-articles
+
+# once per build
+git pull
