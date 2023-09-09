@@ -1,6 +1,6 @@
 ---
 title: server docs
-path: /README
+slug: docs
 draft: false
 ---
 

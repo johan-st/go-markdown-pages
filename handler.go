@@ -26,7 +26,7 @@ type handler struct {
 	router way.Router
 }
 
-type page struct {
+type article struct {
 	Meta metadata
 	Html string
 	// Debug info
@@ -34,7 +34,7 @@ type page struct {
 }
 type metadata struct {
 	Title string
-	Path  string
+	Slug  string
 	Draft bool
 	Tags  []string
 	Date  time.Time
@@ -43,13 +43,6 @@ type metadata struct {
 var (
 	// folder containing templates
 	tmplFolder = "templates"
-
-	// mdGlobs for markdown files
-	mdGlobs = []string{
-		"pages/*.md",
-		"pages/**/*.md",
-		gitMdPath + "/*.md",
-	}
 )
 
 func newHandler(l *log.Logger) *handler {
@@ -65,12 +58,13 @@ func (h *handler) prepareRoutes() {
 	h.router.HandleFunc("GET", "/git", h.handleGitWebhook())
 	h.router.HandleFunc("GET", "/partials/:template", h.handlePartialsDev())
 	h.router.HandleFunc("GET", "/public/", h.handlePublic())
-	h.router.HandleFunc("GET", "...", h.handleDevMode())
+	h.router.HandleFunc("GET", "/blog/:slug", h.handleBlogDev(gitMdPath, "blog"))
 
 }
 
 // HANDLERS
 
+// handleGitWebhook handles executes a git pull on the gitPath when called
 func (h *handler) handleGitWebhook() http.HandlerFunc {
 	// setup
 	l := h.errorLogger.With("handler", "handleGitPull")
@@ -101,6 +95,7 @@ func (h *handler) handleGitWebhook() http.HandlerFunc {
 	}
 }
 
+// handlePartialsDev serves template partials. (dev: It reloads the templates on every request.)
 func (h *handler) handlePartialsDev() http.HandlerFunc {
 	type colorsData string
 	var (
@@ -183,25 +178,20 @@ func (h *handler) handlePublic() http.HandlerFunc {
 	}
 }
 
-// TODO: prepare handlers on startup and not on every request
-// except for dev mode
-func (h *handler) handleDevMode() http.HandlerFunc {
-
+// handleBlogDev serves the blog. It populates with files matching '*.md' in the given directories. TODO: specify frontmatter (dev: It reloads the templates on every request.)
+func (h *handler) handleBlogDev(paths ...string) http.HandlerFunc {
 	type templateData struct {
 		BaseTitle string
 		Nav       map[string]string
 		Meta      map[string]string
 
-		CSS []string
-		JS  []string
-
-		Page page
+		Article article
 	}
 
 	var (
 		tmplData = templateData{
 			Meta:      map[string]string{"description": "TODO: add description", "keywords": "TODO: add keywords"},
-			BaseTitle: "go-md-server",
+			BaseTitle: "jst.dev",
 
 			Nav: map[string]string{},
 		}
@@ -213,7 +203,11 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 		l.Debug("handler ready", "time", time.Since(t))
 	}(time.Now())
 
-	// md := markdown.New(markdown.XHTMLOutput(true), markdown.HTML(true))
+	// TODO: remove
+	l.Debug("handleBlogDev setup", "paths", paths)
+	if len(paths) == 0 {
+		l.Fatal("handleBlogDev setup. no paths given")
+	}
 	md := goldmark.New(
 		goldmark.WithExtensions(
 			extension.GFM,
@@ -225,17 +219,17 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 	)
 	// handler
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		// timer
 		defer func(t time.Time) {
-			l.Info("response", "time", time.Since(t)) // "delay", delay,
-
+			l.Info("response", "time", time.Since(t))
 		}(time.Now())
+
+		slug := way.Param(r.Context(), "slug")
+		l.Debug("handleBlogDev", "slug", slug)
 
 		// Find all markdown files
 		var mdPaths []string
-		for _, g := range mdGlobs {
-			paths, err := filepath.Glob(g)
+		for _, p := range paths {
+			paths, err := filepath.Glob(p + "/*.md")
 			if err != nil {
 				h.errorLogger.Fatal("glob markdown files", "error", err)
 			}
@@ -252,7 +246,7 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 		}
 
 		// prepare pages
-		var pages []page
+		var pages []article
 		tmplData.Nav = make(map[string]string, len(mdPaths))
 		for _, path := range mdPaths {
 			p, err := preparePage(md, path)
@@ -261,31 +255,20 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 				continue
 			}
 			pages = append(pages, p)
-			tmplData.Nav[p.Meta.Path] = p.Meta.Title
+			tmplData.Nav[p.Meta.Slug] = p.Meta.Title
 
 		}
 
 		for _, p := range pages {
-			pagePath, err := url.Parse(p.Meta.Path)
-			if err != nil {
-				l.Fatal("parse page path", "page", p, "error", err)
-				continue
-			}
-			requestPath, err := url.Parse(r.URL.Path)
-			if err != nil {
-				l.Fatal("parse request path", "path", r.URL.Path, "error", err)
-			}
-
-			if pagePath.Path == requestPath.Path {
-
+			if slug == p.Meta.Slug {
 				// TODO: remove debug
 				l.Debug("serving page",
-					"path", p.Meta.Path,
+					"path", p.Meta.Slug,
 					"title", p.Meta.Title,
 					"filename", p.filename,
 					"html_length", len(p.Html))
 
-				tmplData.Page = p
+				tmplData.Article = p
 				err = tmpl.ExecuteTemplate(w, "layout", tmplData)
 				if err != nil {
 					l.Error("execute template", "error", err)
@@ -300,7 +283,7 @@ func (h *handler) handleDevMode() http.HandlerFunc {
 		}
 		pagePaths := make(map[string]string, len(pages))
 		for _, p := range pages {
-			pagePaths[p.Meta.Path] = p.Meta.Title
+			pagePaths[p.Meta.Slug] = p.Meta.Title
 		}
 
 		l.Debug("request path does not match any page",
@@ -320,24 +303,24 @@ func respondStatus(w http.ResponseWriter, r *http.Request, status int) {
 
 // PAGE
 
-func preparePage(md goldmark.Markdown, path string) (page, error) {
+func preparePage(md goldmark.Markdown, path string) (article, error) {
 	file, err := os.ReadFile(path)
 	if err != nil {
-		return page{}, fmt.Errorf("read file: %s", err)
+		return article{}, fmt.Errorf("read file: %s", err)
 	}
 
 	var html bytes.Buffer
 	ctx := parser.NewContext()
 	err = md.Convert(file, &html, parser.WithContext(ctx))
 	if err != nil {
-		return page{}, fmt.Errorf("convert markdown: %s", err)
+		return article{}, fmt.Errorf("convert markdown: %s", err)
 	}
 
 	pageMeta, err := parseMetadata(meta.Get(ctx))
 	if err != nil {
-		return page{}, fmt.Errorf("parse metadata: %s", err)
+		return article{}, fmt.Errorf("parse metadata: %s", err)
 	}
-	p := page{
+	p := article{
 		Meta:     pageMeta,
 		Html:     html.String(),
 		filename: path,
@@ -355,10 +338,10 @@ func parseMetadata(meta map[string]any) (metadata, error) {
 		return m, fmt.Errorf("no title found")
 	}
 
-	if val, ok := meta["path"]; ok {
-		m.Path = val.(string)
+	if val, ok := meta["slug"]; ok {
+		m.Slug = val.(string)
 	} else {
-		return m, fmt.Errorf("no path found")
+		return m, fmt.Errorf("no slug found")
 	}
 
 	if val, ok := meta["draft"]; ok {

@@ -22,7 +22,7 @@ func Test_parseMetadata_old(t *testing.T) {
 				"path":  "/basic",
 				"draft": false,
 			}},
-			metadata{Title: "Test Data Basic", Path: "/basic", Draft: false, Tags: []string{}, Date: time.Time{}},
+			metadata{Title: "Test Data Basic", Slug: "/basic", Draft: false, Tags: []string{}, Date: time.Time{}},
 			false},
 	}
 	for _, tt := range tests {
