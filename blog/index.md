@@ -1,6 +1,6 @@
 ---
 title: Home
-path: /
+slug: 
 draft: false
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: markdown test-sheet
-path: /md-test
+slug: md-test
 draft: false
 ---
 
