@@ -37,7 +37,7 @@ func main() {
 }
 
 func runServer(h *handler) error {
-	l := h.errorLogger.WithPrefix("http-server")
+	l := h.logger.WithPrefix("http-server")
 
 	srv := http.Server{
 		Addr:    ":8080",

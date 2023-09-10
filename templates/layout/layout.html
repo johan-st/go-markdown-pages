@@ -5,11 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    {{if .Article.Meta.Title }}
-    <title>{{.BaseTitle}} | {{ .Article.Meta.Title }}</title>
-    {{else}}
-    <title>{{.BaseTitle}}</title>
-    {{end}}
+    <title>{{.DocTitle}}</title>
 
     <link rel="icon" type="image/x-icon" href="/public/favicon.ico" />
     <link rel="stylesheet" href="/public/github-markdown.css" />
@@ -25,19 +21,6 @@
     <header class="bg-slate-300 dark:bg-slate-900 dark:text-slate-300">
       <h1 class="text-5xl text-center pb-5">
         <a href="/"> jst.dev</a>
-
-        {{/* {{block "Color-Swap-Demo" .}}
-        <div
-          id="color-demo"
-          class="smooth text-3xl duration-1000 transition-colors ease-linear font-extrabold"
-          style="color:{{.}}"
-          hx-get="/partials/Color-Swap-Demo"
-          hx-swap="outerHTML"
-          hx-trigger="every 1s"
-        >
-          Color Swap Demo
-        </div>
-        {{end}} */}}
       </h1>
       <div class="bg-slate-500 w-full py-2 shadow-inner dark:bg-slate-800">
         <nav
@@ -54,27 +37,7 @@
         </nav>
       </div>
     </header>
-
-    {{block "Test-Form" .}}
-    <form id="test-form" hx-post="/partials/Test-Form" hx-swap="outerHTML">
-      <input type="text" name="name" placeholder="Name" />
-      <input type="text" name="email" placeholder="Email" />
-      <input
-        type="submit"
-        value="Submit"
-        class="cursor-pointer bg-white border-slate-500 p-1"
-      />
-    </form>
-    <div id="test-form-response" hx-get="/partials/Test-Form-Response"></div>
-    {{end}}
-
-    <main>
-      <article
-        class="markdown-body w-11/12 mx-auto my-10 p-8 min-h-screen max-w-screen-lg transition-all duration-500 ease-in"
-      >
-        {{.Article.Html}}
-      </article>
-    </main>
+    <main>{{template "content" .Content}}</main>
     <footer
       class="flex flex-row justify-evenly py-6 px-4 bg-gradient-to-br from-slate-800 to-slate-900 text-slate-300"
     >
