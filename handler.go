@@ -27,9 +27,8 @@ type handler struct {
 }
 
 type article struct {
-	Meta metadata
-	Html string
-	// Debug info
+	Meta     metadata
+	Html     string
 	filename string
 }
 type metadata struct {
@@ -42,7 +41,8 @@ type metadata struct {
 
 var (
 	// folder containing templates
-	tmplFolder = "templates"
+	tmplLayoutFolder = "templates/layout"
+	tmplPageFolder   = "templates/pages"
 )
 
 func newHandler(l *log.Logger) *handler {
@@ -58,11 +58,52 @@ func (h *handler) prepareRoutes() {
 	h.router.HandleFunc("GET", "/git", h.handleGitWebhook())
 	h.router.HandleFunc("GET", "/partials/:template", h.handlePartialsDev())
 	h.router.HandleFunc("GET", "/public/", h.handlePublic())
-	h.router.HandleFunc("GET", "/blog/:slug", h.handleBlogDev(gitMdPath, "blog"))
+	h.router.HandleFunc("GET", "/blog", h.handleContentDev("blog.html", h.dataBlogIndex(gitMdPath+"/*.md", "blog/*.md")))
+	h.router.HandleFunc("GET", "/blog/:slug", h.handleBlogDev(gitMdPath+"/*.md", "blog/*.md"))
 
 }
 
 // HANDLERS
+func (h *handler) handleContentDev(contentTemplatePath string, getContentData func() any) http.HandlerFunc {
+	type templateData struct {
+		BaseTitle string
+		Nav       map[string]string
+		Meta      map[string]string
+
+		ContentData any
+	}
+
+	// setup
+	l := h.errorLogger.With("handler", "handleContentDev")
+	defer func(t time.Time) {
+		l.Debug("handler ready", "time", time.Since(t))
+	}(time.Now())
+
+	// handler
+	return func(w http.ResponseWriter, r *http.Request) {
+		baseTmpls, err := template.ParseGlob(tmplLayoutFolder + "/*.html")
+		if err != nil {
+			l.Error("parse base template", "error", err)
+			respondStatus(w, r, http.StatusInternalServerError)
+			return
+		}
+		contentTmpls, err := baseTmpls.Clone()
+		if err != nil {
+			l.Error("clone base templates", "error", err)
+			respondStatus(w, r, http.StatusInternalServerError)
+			return
+		}
+
+		contentTmpls, err = contentTmpls.ParseFiles(tmplPageFolder + "/" + contentTemplatePath)
+		if err != nil {
+			l.Error("parse content template", "error", err)
+			respondStatus(w, r, http.StatusInternalServerError)
+			return
+		}
+
+		err = contentTmpls.ExecuteTemplate(w, "layout", nil)
+	}
+}
 
 // handleGitWebhook handles executes a git pull on the gitPath when called
 func (h *handler) handleGitWebhook() http.HandlerFunc {
@@ -123,7 +164,7 @@ func (h *handler) handlePartialsDev() http.HandlerFunc {
 			)
 		}(time.Now())
 
-		tmpl, err := template.ParseGlob(tmplFolder + "/*.html")
+		tmpl, err := template.ParseGlob(tmplLayoutFolder + "/*.html")
 		if err != nil {
 			l.Error("parse template", "error", err)
 			respondStatus(w, r, http.StatusInternalServerError)
@@ -179,7 +220,7 @@ func (h *handler) handlePublic() http.HandlerFunc {
 }
 
 // handleBlogDev serves the blog. It populates with files matching '*.md' in the given directories. TODO: specify frontmatter (dev: It reloads the templates on every request.)
-func (h *handler) handleBlogDev(paths ...string) http.HandlerFunc {
+func (h *handler) handleBlogDev(mdGlobs ...string) http.HandlerFunc {
 	type templateData struct {
 		BaseTitle string
 		Nav       map[string]string
@@ -204,8 +245,8 @@ func (h *handler) handleBlogDev(paths ...string) http.HandlerFunc {
 	}(time.Now())
 
 	// TODO: remove
-	l.Debug("handleBlogDev setup", "paths", paths)
-	if len(paths) == 0 {
+	l.Debug("handleBlogDev setup", "globs", mdGlobs)
+	if len(mdGlobs) == 0 {
 		l.Fatal("handleBlogDev setup. no paths given")
 	}
 	md := goldmark.New(
@@ -228,8 +269,8 @@ func (h *handler) handleBlogDev(paths ...string) http.HandlerFunc {
 
 		// Find all markdown files
 		var mdPaths []string
-		for _, p := range paths {
-			paths, err := filepath.Glob(p + "/*.md")
+		for _, g := range mdGlobs {
+			paths, err := filepath.Glob(g)
 			if err != nil {
 				h.errorLogger.Fatal("glob markdown files", "error", err)
 			}
@@ -238,15 +279,15 @@ func (h *handler) handleBlogDev(paths ...string) http.HandlerFunc {
 		h.errorLogger.Debug("found markdown files", "files", mdPaths)
 
 		// prepare templates
-		tmpl, err := template.ParseGlob(tmplFolder + "/*.html")
+		tmpl, err := template.ParseGlob(tmplLayoutFolder + "/*.html")
 		if err != nil {
 			l.Error("parse template", "error", err)
 			respondStatus(w, r, http.StatusInternalServerError)
 			return
 		}
 
-		// prepare pages
-		var pages []article
+		// prepare articles
+		var articles []article
 		tmplData.Nav = make(map[string]string, len(mdPaths))
 		for _, path := range mdPaths {
 			p, err := preparePage(md, path)
@@ -254,14 +295,13 @@ func (h *handler) handleBlogDev(paths ...string) http.HandlerFunc {
 				l.Error("prepare page. page ignored", "file", path, "error", err)
 				continue
 			}
-			pages = append(pages, p)
+			articles = append(articles, p)
 			tmplData.Nav[p.Meta.Slug] = p.Meta.Title
 
 		}
 
-		for _, p := range pages {
+		for _, p := range articles {
 			if slug == p.Meta.Slug {
-				// TODO: remove debug
 				l.Debug("serving page",
 					"path", p.Meta.Slug,
 					"title", p.Meta.Title,
@@ -281,8 +321,8 @@ func (h *handler) handleBlogDev(paths ...string) http.HandlerFunc {
 		if err != nil {
 			l.Fatal("parse request path", "path", r.URL.Path, "error", err)
 		}
-		pagePaths := make(map[string]string, len(pages))
-		for _, p := range pages {
+		pagePaths := make(map[string]string, len(articles))
+		for _, p := range articles {
 			pagePaths[p.Meta.Slug] = p.Meta.Title
 		}
 
@@ -292,6 +332,14 @@ func (h *handler) handleBlogDev(paths ...string) http.HandlerFunc {
 			"avaiable_paths", pagePaths,
 		)
 		respondStatus(w, r, http.StatusNotFound)
+	}
+}
+
+// Content Data Functions
+
+func (h *handler) dataBlogIndex() func() any {
+	return func() any {
+		return "BOB"
 	}
 }
 
