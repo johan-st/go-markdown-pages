@@ -316,7 +316,12 @@ func preparePage(md goldmark.Markdown, path string) (article, error) {
 		return article{}, fmt.Errorf("convert markdown: %s", err)
 	}
 
-	pageMeta, err := parseMetadata(meta.Get(ctx))
+	metaData, err := meta.TryGet(ctx)
+	if err != nil {
+		return article{}, fmt.Errorf("get metadata: %s", err)
+	}
+
+	pageMeta, err := parseMetadata(metaData)
 	if err != nil {
 		return article{}, fmt.Errorf("parse metadata: %s", err)
 	}
@@ -332,20 +337,42 @@ func parseMetadata(meta map[string]any) (metadata, error) {
 	m := metadata{}
 
 	// REQUIRED fields
+
 	if val, ok := meta["title"]; ok {
-		m.Title = val.(string)
+		switch t := val.(type) {
+		case string:
+			if t == "" {
+				return m, fmt.Errorf("title is empty")
+			}
+			m.Title = t
+		default:
+			return m, fmt.Errorf("title must be a string")
+		}
 	} else {
 		return m, fmt.Errorf("no title found")
 	}
 
 	if val, ok := meta["slug"]; ok {
-		m.Slug = val.(string)
+		switch t := val.(type) {
+		case string:
+			if t == "" {
+				return m, fmt.Errorf("slug is empty")
+			}
+			m.Slug = t
+		default:
+			return m, fmt.Errorf("slug must be a string")
+		}
 	} else {
 		return m, fmt.Errorf("no slug found")
 	}
 
 	if val, ok := meta["draft"]; ok {
-		m.Draft = val.(bool)
+		switch t := val.(type) {
+		case bool:
+			m.Draft = t
+		default:
+			return m, fmt.Errorf("draft must be a bool")
+		}
 	} else {
 		return m, fmt.Errorf("no draft found")
 	}
