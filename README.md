@@ -24,8 +24,7 @@ air -c .air.toml
 - [ ] have articles listed under /articles
 - [ ] integrate with [turso.tech](https://turso.tech) (for fun and profit)
 - [ ] animate page transitions
-- [ ] syntax highlighting w/ https://github.com/wooorm/starry-night
-- [ ] add search
+- [ ] syntax highlighting w/ https://github.com/alecthomas/chroma
 - [ ] add tags
 - [ ] add date
 - [ ] add comments?
