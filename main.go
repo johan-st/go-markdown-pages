@@ -28,7 +28,7 @@ func main() {
 	l.SetReportCaller(true)
 
 	handler := newHandler(l)
-	handler.prepareRoutes()
+	handler.prepareRoutesDev()
 
 	// gitRefresher will pull from git at a given intervall
 	go gitPoll(l, gitRefreshIntervall)

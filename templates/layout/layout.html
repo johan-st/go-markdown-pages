@@ -1,56 +1,61 @@
 {{block "layout" .}}
 <!DOCTYPE html>
 <html lang="en" class="font-sans bg-black">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>{{.DocTitle}}</title>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <link rel="icon" type="image/x-icon" href="/public/favicon.ico" />
-    <link rel="stylesheet" href="/public/github-markdown.css" />
-    <link rel="stylesheet" href="/public/tailwind.css" />
-    <link rel="stylesheet" href="/public/custom.css" />
-    <script src="/public/htmx.min.js"></script>
-  </head>
+  <title>{{.DocTitle}}</title>
 
-  <body
-    id="body"
-    class="bg-gradient-to-br from-slate-100 to-slate-300 min-h-screen dark:from-slate-950 dark:to-slate-800"
-  >
-    <header class="bg-slate-300 dark:bg-slate-900 dark:text-slate-300">
-      <h1 class="text-5xl text-center pb-5">
-        <a href="/"> jst.dev</a>
-      </h1>
-      <div class="bg-slate-500 w-full py-2 shadow-inner dark:bg-slate-800">
-        <nav
-          hx-boost="true"
-          class="flex flex-row justify-center max-w-screen-lg mx-auto"
-        >
-          {{range $url, $name := .Nav}}
-          <a
-            class="bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-300 mr-2 last:mr-0 w-max px-8 text-center py-4 hover:shadow-lg hover:-translate-y-1 hover:bg-slate-500 hover:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-all"
-            href="{{$url}}"
-            >{{$name}}</a
-          >
+  <link rel="icon" type="image/x-icon" href="/public/favicon.ico" />
+  <link rel="stylesheet" href="/public/github-markdown.css" />
+  <link rel="stylesheet" href="/public/tailwind.css" />
+  <link rel="stylesheet" href="/public/custom.css" />
+  <script src="/public/htmx.min.js"></script>
+</head>
+
+<body id="body"
+  class="bg-gradient-to-br min-h-screen from-slate-950 to-slate-800">
+  <header class=" bg-slate-900 text-slate-300">
+    <h1 class="text-5xl text-center pb-5">
+      <a href="/">Docs</a>
+    </h1>
+    <div class=" w-full py-2 shadow-inner bg-slate-800">
+      <nav hx-boost="true" class="flex flex-row justify-center max-w-screen-lg mx-auto">
+        {{range .Nav}}
+          <a class="
+        bg-slate-700  text-slate-300 border-slate-600
+        hover:bg-slate-600 hover:text-slate-200 hover:border-slate-700
+          transition-all mx-1 w-max px-8 text-center duration-300
+          py-4 shadow first:rounded-s-3xl last:rounded-e-3xl rounded-lg border-2 
+          hover:rounded-sm hover:shadow-lg hover:underline
+          active:scale-95 active:shadow-sm  active:duration-0
+          {{if .Active}}
+          bg-slate-600 text-slate-200 border-slate-700
+            underline font-bold uppercase shadow-sm 
           {{end}}
-        </nav>
-      </div>
-    </header>
-    <main>{{template "content" .Content}}</main>
-    <footer
-      class="flex flex-row justify-evenly py-6 px-4 bg-gradient-to-br from-slate-800 to-slate-900 text-slate-300"
-    >
-      <ul class="flex flex-col items-center w-1/3" hx-boost="true">
-        {{range $url, $name := .Nav}}
-        <a
-          class="w-full py-2 underline text-center text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-all"
-          href="{{$url}}"
-          >{{$name}}</a
-        >
+          "
+            href="{{.Url}}">{{.Name}}</a>
         {{end}}
-      </ul>
-    </footer>
-  </body>
+      </nav>
+    </div>
+    {{if .Style}}
+    <span class="text-center text-slate-500 text-sm">
+      code style is: {{.Style}}
+    </span>
+    {{end}}
+  </header>
+  <main>{{template "content" .Content}}</main>
+  <footer class="flex flex-row justify-evenly py-6 px-4 bg-gradient-to-br from-slate-800 to-slate-900 text-slate-300">
+    <ul class="flex flex-col items-center w-1/3" hx-boost="true">
+      {{range $i, $l := .Nav}}
+      <a class="w-full py-2 underline text-center text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-all"
+        href="{{$l.Url}}">{{$l.Name}}</a>
+      {{end}}
+    </ul>
+  </footer>
+</body>
+
 </html>
 {{end}}

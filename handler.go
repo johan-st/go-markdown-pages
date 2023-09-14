@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -11,43 +12,17 @@ import (
 	"text/template"
 	"time"
 
+	chromaStyles "github.com/alecthomas/chroma/v2/styles"
 	"github.com/charmbracelet/log"
 	"github.com/matryer/way"
 	"github.com/yuin/goldmark"
+	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	meta "github.com/yuin/goldmark-meta"
+
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
 )
-
-type handler struct {
-	logger *log.Logger
-
-	router way.Router
-}
-
-type article struct {
-	Meta     metadata
-	Html     string
-	filename string
-}
-
-type metadata struct {
-	Title   string
-	Slug    string
-	Draft   bool
-	Tags    []string
-	Excerpt string
-	Date    time.Time
-}
-
-type templateData struct {
-	DocTitle string
-	Nav      map[string]string
-	Meta     map[string]string
-
-	Content any
-}
 
 var (
 	// folder containing templates
@@ -55,12 +30,54 @@ var (
 	tmplPageFolder   = "templates/pages"
 
 	// base info for all pages
-	mainNav = map[string]string{
-		"/blog/docs": "docs",
-		"/blog":      "blog",
+	mainNav = []navLink{
+		{"/", "home", false},
+		// {"/about", "about", false},
+		// {"/projects", "projects", false},
+		// {"/contact", "contact", false},
+		{"/blog", "blog", false},
+		{"/docs", "docs", false},
 	}
-	baseTitle = "jst.dev"
+
+	baseTitle = "docs"
+	baseMeta  = map[string]string{"description": "TODO: add description", "keywords": "TODO: add keywords"}
 )
+
+type handler struct {
+	logger *log.Logger
+	router way.Router
+}
+
+type navLink struct {
+	Url    string
+	Name   string
+	Active bool
+}
+
+type blogPost struct {
+	Meta     metadata
+	Html     string
+	filename string
+}
+
+type metadata struct {
+	Title       string
+	Slug        string
+	Draft       bool
+	Date        time.Time
+	Tags        []string
+	Description string
+	CssClass    string
+}
+
+type templateData struct {
+	DocTitle string
+	Nav      []navLink
+	Meta     map[string]string
+
+	Style   string
+	Content any
+}
 
 func newHandler(l *log.Logger) *handler {
 	h := &handler{
@@ -71,19 +88,95 @@ func newHandler(l *log.Logger) *handler {
 	return h
 }
 
-func (h *handler) prepareRoutes() {
+// ROUTES
+
+// prepareRoutesDev prepares the routes for development. (dev: It reloads the templates on every request.)
+func (h *handler) prepareRoutesDev() {
 	h.router.HandleFunc("GET", "/git", h.handleGitWebhook())
-	h.router.HandleFunc("GET", "/partials/:template", h.handlePartialsDev())
+	h.router.HandleFunc("GET", "/partials/:block", h.handlePartialsDev())
 	h.router.HandleFunc("GET", "/public/", h.handlePublic())
-	h.router.HandleFunc("GET", "/blog", h.handlePageDev("blog.html", h.dataBlogIndex(gitMdPath+"/*.md", "blog/*.md")))
-	h.router.HandleFunc("GET", "/blog/:slug", h.handleBlogDev(gitMdPath+"/*.md", "blog/*.md"))
+	h.router.HandleFunc("GET", "/blog", h.handleTemplateDev("blog.html", h.dataBlogIndex(gitMdPath+"/*.md", "blog/*.md")))
+	h.router.HandleFunc("GET", "/blog/:slug", h.handleMarkdownDev(gitMdPath+"/blog/*.md", "blog/*.md"))
+	h.router.HandleFunc("GET", "/:slug", h.handleMarkdownDev(gitMdPath+"/pages/*.md", "pages/*.md"))
 
-	h.router.HandleFunc("GET", "...", h.handlePageDev("blog.html", h.dataBlogIndex(gitMdPath+"/*.md", "blog/*.md"))) //TODO: remove
-
+	// everything else
+	h.router.HandleFunc("GET", "...", h.handleRedirect(http.StatusTemporaryRedirect, "/blog"))
+	h.router.HandleFunc("*", "...", h.handleStatus(http.StatusMethodNotAllowed))
 }
 
 // HANDLERS
-func (h *handler) handlePageDev(contentTemplatePath string, getContentData func() any) http.HandlerFunc {
+
+func (h *handler) handleStatus(status int) http.HandlerFunc {
+	// setup
+	l := h.logger.With("handler", "handleStatus")
+	defer func(t time.Time) {
+		l.Debug("handler ready", "time", time.Since(t))
+	}(time.Now())
+
+	// handler
+	return func(w http.ResponseWriter, r *http.Request) {
+		// timer
+		defer func(t time.Time) {
+			l.Debug("responding",
+				"time", time.Since(t),
+				"request_path", r.URL.Path,
+				"status", status,
+			)
+		}(time.Now())
+
+		respondStatus(w, r, status)
+	}
+}
+
+func (h *handler) handleRedirect(status int, redirectPath string) http.HandlerFunc {
+	// setup
+	l := h.logger.With("handler", "handleRedirect")
+	defer func(t time.Time) {
+		l.Debug("handler ready", "time", time.Since(t))
+	}(time.Now())
+
+	if status < 300 || status > 399 {
+		l.Error("invalid status code. Redirects might not work as expected",
+			"status", status,
+			"expected_status", "300 <= status <= 399",
+		)
+	}
+
+	if redirectPath == "" {
+		l.Fatal("redirect path is empty")
+	}
+
+	// handler
+	return func(w http.ResponseWriter, r *http.Request) {
+		// timer
+		defer func(t time.Time) {
+			l.Debug("responding",
+				"time", time.Since(t),
+				"request_path", r.URL.Path,
+				"redirect_path", redirectPath,
+				"status", status,
+			)
+		}(time.Now())
+
+		if redirectPath == r.URL.Path {
+			l.Debug("redirect loop detected",
+				"request_path", r.URL.Path,
+				"redirect_path", redirectPath,
+				"status", status,
+			)
+			l.Error("redirect loop detected",
+				"request_path", r.URL.Path,
+				"redirect_path", redirectPath,
+			)
+			respondStatus(w, r, http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, redirectPath, status)
+	}
+}
+
+func (h *handler) handleTemplateDev(contentTemplatePath string, getContentData func() any) http.HandlerFunc {
 	// setup
 	l := h.logger.With("handler", "handleContentDev")
 	defer func(t time.Time) {
@@ -92,6 +185,39 @@ func (h *handler) handlePageDev(contentTemplatePath string, getContentData func(
 
 	// handler
 	return func(w http.ResponseWriter, r *http.Request) {
+		// timer
+		defer func(t time.Time) {
+			l.Debug("responding",
+				"time", time.Since(t),
+				"request_path", r.URL.Path,
+				"template_requested", way.Param(r.Context(), "template"),
+			)
+		}(time.Now())
+
+
+		// find first path element
+		firstPath := strings.Split(r.URL.Path, "/")[1]
+		if firstPath == "" {
+			firstPath = "/"
+		}
+
+		// set active navlink
+		navlinks := mainNav
+		for i := range navlinks {
+			if navlinks[i].Url == fmt.Sprintf("/%s", firstPath) {
+				navlinks[i].Active = true
+				l.Debug("active navlink",
+					"url", navlinks[i].Url,
+					"name", navlinks[i].Name)
+				continue
+			}
+			navlinks[i].Active = false
+		}
+		
+
+		l.Debug("first path element",
+			"path", firstPath)
+
 		baseTmpls, err := template.ParseGlob(tmplLayoutFolder + "/*.html")
 		if err != nil {
 			l.Error("parse base template", "error", err)
@@ -113,11 +239,13 @@ func (h *handler) handlePageDev(contentTemplatePath string, getContentData func(
 		}
 
 		// prepare data
+
+		for _, tmpl := range contentTmpls.Templates() {
+			l.Debug("template", "name", tmpl.Name())
+		}
+
 		tmplData := templateData{
-			Meta: map[string]string{
-				"description": "TODO: add description",
-				"keywords":    "TODO: add keywords",
-			},
+			Meta:     baseMeta,
 			DocTitle: baseTitle + " | blog",
 			Nav:      mainNav,
 
@@ -137,7 +265,7 @@ func (h *handler) handlePageDev(contentTemplatePath string, getContentData func(
 // handleGitWebhook handles executes a git pull on the gitPath when called
 func (h *handler) handleGitWebhook() http.HandlerFunc {
 	// setup
-	l := h.logger.With("handler", "handleGitPull")
+	l := h.logger.With("handler", "handleGitWebhook")
 	defer func(t time.Time) {
 		l.Debug("handler ready", "time", time.Since(t))
 	}(time.Now())
@@ -200,7 +328,7 @@ func (h *handler) handlePartialsDev() http.HandlerFunc {
 			return
 		}
 
-		requestedTemplate := way.Param(r.Context(), "template")
+		requestedTemplate := way.Param(r.Context(), "block")
 
 		switch requestedTemplate {
 		case "Color-Swap-Demo":
@@ -248,19 +376,20 @@ func (h *handler) handlePublic() http.HandlerFunc {
 	}
 }
 
-// handleBlogDev serves the blog. It populates with files matching '*.md' in the given directories. TODO: specify frontmatter (dev: It reloads the templates on every request.)
-func (h *handler) handleBlogDev(mdGlobs ...string) http.HandlerFunc {
-
+// handleMarkdownDev serves the blog. It populates with files matching '*.md' in the given directories. (dev: It reloads the templates on every request.)
+func (h *handler) handleMarkdownDev(mdGlobs ...string) http.HandlerFunc {
 	var (
+		navLinks = mainNav
 		tmplData = templateData{
-			Meta: map[string]string{
-				"description": "TODO: add description",
-				"keywords":    "TODO: add keywords",
-			},
 			DocTitle: baseTitle,
-
-			Nav: mainNav,
+			Nav:      navLinks,
+			Meta:     baseMeta,
+			Content:  nil,
 		}
+
+		defaultStyle    = "nord"
+		defaultStyleInt = 0 // set in runtime
+		randCodeStyle   = false
 	)
 
 	// setup
@@ -269,28 +398,74 @@ func (h *handler) handleBlogDev(mdGlobs ...string) http.HandlerFunc {
 		l.Debug("handler ready", "time", time.Since(t))
 	}(time.Now())
 
-	// TODO: remove
 	l.Debug("handleBlogDev setup", "globs", mdGlobs)
 	if len(mdGlobs) == 0 {
 		l.Fatal("handleBlogDev setup. no paths given")
 	}
-	md := goldmark.New(
-		goldmark.WithExtensions(
-			extension.GFM,
-			meta.Meta,
-		),
-		goldmark.WithRendererOptions(
-			html.WithUnsafe(),
-		),
-	)
+
+	highlightingStyles := chromaStyles.Names()
+	if i, ok := indexOf(highlightingStyles, defaultStyle); ok {
+		defaultStyleInt = i
+	} else {
+		l.Fatal("default highlighting style not found", "style", defaultStyle, "available_styles", highlightingStyles)
+	}
+
 	// handler
 	return func(w http.ResponseWriter, r *http.Request) {
+
 		defer func(t time.Time) {
 			l.Info("response", "time", time.Since(t))
 		}(time.Now())
 
+		qStyle := strings.ToLower(r.URL.Query().Get("style"))
+
+		reqStyleInt, ok := indexOf(highlightingStyles, qStyle)
+		if ok {
+			l.Debug("found highlighting style", "style", qStyle, "index", reqStyleInt)
+		} else if randCodeStyle {
+			l.Debug("highlighting style not found. using random", "style", qStyle)
+			reqStyleInt = rand.Intn(len(highlightingStyles))
+		} else {
+			l.Debug("highlighting style not found. using default", "style", qStyle, "index", defaultStyleInt)
+			reqStyleInt = defaultStyleInt
+		}
+
+		tmplData.Style = fmt.Sprintf("(%d/%d): %s", reqStyleInt+1, len(highlightingStyles), highlightingStyles[reqStyleInt])
+
+		// setup markdown parser
+		md := goldmark.New(
+			goldmark.WithExtensions(
+				highlighting.NewHighlighting(
+					highlighting.WithStyle(highlightingStyles[reqStyleInt]),
+				),
+				extension.GFM,
+				meta.Meta,
+			),
+			goldmark.WithRendererOptions(
+				html.WithUnsafe(),
+			),
+		)
+
 		slug := way.Param(r.Context(), "slug")
-		l.Debug("handleBlogDev", "slug", slug)
+		l.Debug("handleBlogDev",
+			"slug", slug,
+		)
+
+		// find first path element
+		firstPath := strings.Split(r.URL.Path, "/")[1]
+		if firstPath == "" {
+			firstPath = "/"
+		}
+
+		// set active navlink
+		navlinks := mainNav
+		for i := range navlinks {
+			if navlinks[i].Url == fmt.Sprintf("/%s", firstPath) {
+				navlinks[i].Active = true
+				continue
+			}
+			navlinks[i].Active = false
+		}
 
 		// Find all markdown files
 		var mdPaths []string
@@ -311,18 +486,18 @@ func (h *handler) handleBlogDev(mdGlobs ...string) http.HandlerFunc {
 			return
 		}
 
-		// prepare articles
-		var articles []article
+		// prepare blogPosts
+		var blogPosts []blogPost
 		for _, path := range mdPaths {
 			p, err := preparePage(md, path)
 			if err != nil {
-				l.Error("prepare page. page ignored", "file", path, "error", err)
+				l.Warn("prepare page. page ignored", "file", path, "reason", err)
 				continue
 			}
-			articles = append(articles, p)
+			blogPosts = append(blogPosts, p)
 		}
 
-		for _, p := range articles {
+		for _, p := range blogPosts {
 			if slug == p.Meta.Slug {
 				l.Debug("serving page",
 					"path", p.Meta.Slug,
@@ -342,6 +517,9 @@ func (h *handler) handleBlogDev(mdGlobs ...string) http.HandlerFunc {
 					respondStatus(w, r, http.StatusInternalServerError)
 					return
 				}
+
+				// prepare data
+				tmplData.DocTitle = baseTitle + " | " + p.Meta.Title
 				tmplData.Content = p
 				err = articleTmpl.ExecuteTemplate(w, "layout", tmplData)
 				if err != nil {
@@ -355,8 +533,8 @@ func (h *handler) handleBlogDev(mdGlobs ...string) http.HandlerFunc {
 		if err != nil {
 			l.Fatal("parse request path", "path", r.URL.Path, "error", err)
 		}
-		pagePaths := make(map[string]string, len(articles))
-		for _, p := range articles {
+		pagePaths := make(map[string]string, len(blogPosts))
+		for _, p := range blogPosts {
 			pagePaths[p.Meta.Slug] = p.Meta.Title
 		}
 
@@ -365,7 +543,7 @@ func (h *handler) handleBlogDev(mdGlobs ...string) http.HandlerFunc {
 			"response_code", http.StatusNotFound,
 			"avaiable_paths", pagePaths,
 		)
-		respondStatus(w, r, http.StatusNotFound)
+		h.handleRedirect(http.StatusTemporaryRedirect, "/404")(w, r)
 	}
 }
 
@@ -421,29 +599,29 @@ func respondStatus(w http.ResponseWriter, r *http.Request, status int) {
 
 // PAGE
 
-func preparePage(md goldmark.Markdown, path string) (article, error) {
+func preparePage(md goldmark.Markdown, path string) (blogPost, error) {
 	file, err := os.ReadFile(path)
 	if err != nil {
-		return article{}, fmt.Errorf("read file: %s", err)
+		return blogPost{}, fmt.Errorf("read file: %s", err)
 	}
 
 	var html bytes.Buffer
 	ctx := parser.NewContext()
 	err = md.Convert(file, &html, parser.WithContext(ctx))
 	if err != nil {
-		return article{}, fmt.Errorf("convert markdown: %s", err)
+		return blogPost{}, fmt.Errorf("convert markdown: %s", err)
 	}
 
 	metaData, err := meta.TryGet(ctx)
 	if err != nil {
-		return article{}, fmt.Errorf("get metadata: %s", err)
+		return blogPost{}, fmt.Errorf("get metadata: %s", err)
 	}
 
 	pageMeta, err := parseMetadata(metaData)
 	if err != nil {
-		return article{}, fmt.Errorf("parse metadata: %s", err)
+		return blogPost{}, fmt.Errorf("parse metadata: %s", err)
 	}
-	p := article{
+	p := blogPost{
 		Meta:     pageMeta,
 		Html:     html.String(),
 		filename: path,
@@ -455,7 +633,6 @@ func parseMetadata(meta map[string]any) (metadata, error) {
 	m := metadata{}
 
 	// REQUIRED fields
-
 	if val, ok := meta["title"]; ok {
 		switch t := val.(type) {
 		case string:
@@ -477,6 +654,8 @@ func parseMetadata(meta map[string]any) (metadata, error) {
 				return m, fmt.Errorf("slug is empty")
 			}
 			m.Slug = t
+		case int:
+			m.Slug = fmt.Sprintf("%d", t)
 		default:
 			return m, fmt.Errorf("slug must be a string")
 		}
@@ -499,6 +678,15 @@ func parseMetadata(meta map[string]any) (metadata, error) {
 	m.Tags = []string{}
 	m.Date = time.Time{}
 
+	if val, ok := meta["description"]; ok {
+		switch t := val.(type) {
+		case string:
+			m.Description = t
+		default:
+			return m, fmt.Errorf("description must be a string")
+		}
+	}
+
 	return m, nil
 }
 
@@ -506,4 +694,13 @@ func parseMetadata(meta map[string]any) (metadata, error) {
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.router.ServeHTTP(w, r)
+}
+
+func indexOf(slice []string, s string) (int, bool) {
+	for i, e := range slice {
+		if e == s {
+			return i, true
+		}
+	}
+	return 0, false
 }

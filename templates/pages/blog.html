@@ -1,12 +1,23 @@
 {{define "content"}}
-<ul class="flex flex-col items-center w-1/3 mx-auto" hx-boost="true">
-  {{range $a := .PostMetas}}
-  <a
-    class="w-full py-2 underline text-center text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-all"
-    href="/blog/{{$a.Slug}}"
-    ><div>
-      <h3>{{$a.Title}}</h3>
-      <p>lorem lorem {{$a.Excerpt}}</p>
+<ul class=" flex flex-col items-center max-w-lg mx-auto  " hx-boost=" true">
+  {{range .PostMetas}}
+  <a class="border border-slate-800 group w-full p-6 pb-2 my-2 text-slate-300 transition-colors  ease-in-out bg-gradient-to-b from-slate-800 to-slate-900 rounded hover:from-slate-700  focus:bg-slate-900 focus:text-slate-100 shadow hover:text-yellow-300"
+    href="/blog/{{.Slug}}">
+    <div>
+      {{if .Description}}
+      <h3
+        class="text-3xl w-full pb-2 pl-4 group-hover:text-slate-600 group-hover:translate-x-2  group-focus:text-slate-600 transition-all"
+        id="blogpost-{{.Title}}">
+        {{.Title}}</h3>
+      <p
+        class="border-y-2 border-slate-600 border-b-transparent py-4 transition-all group-hover:border-slate-500   group-focus:border-slate-500">
+        {{.Description}}</p>
+      {{else}}
+      <h3
+        class="text-3xl w-full pb-2 pl-4 group-hover:text-yellow-300 group-focus:text-slate-100  group-hover:underline group-focus:underline transition-all"
+        id="blogpost-{{.Title}}">
+        {{.Title}}</h3>
+      {{end}}
     </div>
   </a>
   {{end}}

@@ -4,9 +4,7 @@ slug: md-test
 draft: false
 ---
 
-# Welcome to my grand blog
-
-This is a blog post. It is written in markdown and rendered by the go-markdown-pages package.
+This is a blog post. It is written in markdown and rendered by go-markdown-pages.
 
 ## code
 
