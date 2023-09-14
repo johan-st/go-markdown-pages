@@ -20,7 +20,9 @@ air -c .air.toml
 
 ## TODOs
 
-- [ ] have articles listed under /articles
+- [x] have articles listed under /articles
+  - completed under /blog
+  - [ ] add pagination 
 - [ ] integrate with [turso.tech](https://turso.tech) (for fun and profit)
 - [ ] animate page transitions
 - [ ] syntax highlighting w/ <https://github.com/wooorm/starry-night>
@@ -30,6 +32,8 @@ air -c .air.toml
 - [ ] add comments?
 - [ ] embed files in binary
 - [ ] production mode (precompile templates and markdown)
+- [x] syntax highlighting w/ https://github.com/alecthomas/chroma
+  - goldmark has a chroma extension
 - [x] add a favicon
 - [x] github flavored markdown and styling [css](https://github.com/sindresorhus/github-markdown-css)
 - [x] enable html in markdown
