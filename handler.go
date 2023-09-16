@@ -77,6 +77,8 @@ type templateData struct {
 
 	Style   string
 	Content any
+
+	Dev bool
 }
 
 func newHandler(l *log.Logger) *handler {
@@ -92,6 +94,7 @@ func newHandler(l *log.Logger) *handler {
 
 // prepareRoutesDev prepares the routes for development. (dev: It reloads the templates on every request.)
 func (h *handler) prepareRoutesDev() {
+	h.router.HandleFunc("GET", "/", h.handleTemplateDev("index.html", h.dataBlogIndex(gitMdPath+"/*.md", "blog/*.md")))
 	h.router.HandleFunc("GET", "/git", h.handleGitWebhook())
 	h.router.HandleFunc("GET", "/partials/:block", h.handlePartialsDev())
 	h.router.HandleFunc("GET", "/public/", h.handlePublic())
@@ -194,7 +197,6 @@ func (h *handler) handleTemplateDev(contentTemplatePath string, getContentData f
 			)
 		}(time.Now())
 
-
 		// find first path element
 		firstPath := strings.Split(r.URL.Path, "/")[1]
 		if firstPath == "" {
@@ -204,7 +206,7 @@ func (h *handler) handleTemplateDev(contentTemplatePath string, getContentData f
 		// set active navlink
 		navlinks := mainNav
 		for i := range navlinks {
-			if navlinks[i].Url == fmt.Sprintf("/%s", firstPath) {
+			if navlinks[i].Url == fmt.Sprintf("/%s", firstPath) ||  navlinks[i].Url ==  firstPath {
 				navlinks[i].Active = true
 				l.Debug("active navlink",
 					"url", navlinks[i].Url,
@@ -213,7 +215,6 @@ func (h *handler) handleTemplateDev(contentTemplatePath string, getContentData f
 			}
 			navlinks[i].Active = false
 		}
-		
 
 		l.Debug("first path element",
 			"path", firstPath)
@@ -245,11 +246,12 @@ func (h *handler) handleTemplateDev(contentTemplatePath string, getContentData f
 		}
 
 		tmplData := templateData{
-			Meta:     baseMeta,
 			DocTitle: baseTitle + " | blog",
 			Nav:      mainNav,
-
-			Content: getContentData(),
+			Meta:     baseMeta,
+			Style:    "",
+			Content:  getContentData(),
+			Dev:      true,
 		}
 
 		// execute template
@@ -385,6 +387,7 @@ func (h *handler) handleMarkdownDev(mdGlobs ...string) http.HandlerFunc {
 			Nav:      navLinks,
 			Meta:     baseMeta,
 			Content:  nil,
+			Dev:      true,
 		}
 
 		defaultStyle    = "nord"

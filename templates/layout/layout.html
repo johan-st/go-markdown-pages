@@ -9,8 +9,12 @@
   <title>{{.DocTitle}}</title>
 
   <link rel="icon" type="image/x-icon" href="/public/favicon.ico" />
-  <link rel="stylesheet" href="/public/github-markdown.css" />
+  {{if .Dev}}
+  <script src="https://cdn.tailwindcss.com"></script> {{/* enables changing classes in browser without reloading to get the rebuildt version from local */}}
+  {{else}}
+  {{end}}
   <link rel="stylesheet" href="/public/tailwind.css" />
+  <link rel="stylesheet" href="/public/github-markdown.css" />
   <link rel="stylesheet" href="/public/custom.css" />
   <script src="/public/htmx.min.js"></script>
 </head>
@@ -26,14 +30,18 @@
         {{range .Nav}}
           <a class="
         bg-slate-700  text-slate-300 border-slate-600
-        hover:bg-slate-600 hover:text-slate-200 hover:border-slate-700
+        hover:bg-slate-600 hover:text-yellow-500 hover:border-yellow-500
           transition-all mx-1 w-max px-8 text-center duration-300
           py-4 shadow first:rounded-s-3xl last:rounded-e-3xl rounded-lg border-2 
           hover:rounded-sm hover:shadow-lg hover:underline
           active:scale-95 active:shadow-sm  active:duration-0
           {{if .Active}}
-          bg-slate-600 text-slate-200 border-slate-700
-            underline font-bold uppercase shadow-sm 
+          bg-slate-600 text-yellow-500 border-yellow-800
+            underline font-bold uppercase shadow-sm rounded-sm
+            last:rounded-e-sm first:rounded-s-sm
+            pointer-events-none
+          {{else}}
+
           {{end}}
           "
             href="{{.Url}}">{{.Name}}</a>
